@@ -1,4 +1,4 @@
-# Trailscape — Design
+# magellan — Design
 
 A local tool that turns a GPX trail into a to-scale, freely explorable 3D world:
 real elevation, real satellite imagery, a procedurally grown forest, and the
@@ -6,7 +6,8 @@ trail itself draped over the terrain. Inspired by _ode-to-yosemite_, but
 generalized from one hardcoded valley to **any** uploaded trail, and built to
 run entirely on your own machine.
 
-This document is the architecture. `README.md` is the run-it guide.
+This document is the architecture. `readme.md` is the run-it guide, and
+`todo.md` tracks what's next.
 
 ---
 
@@ -59,11 +60,12 @@ Three parts, glued by a thin local server:
                  │  water/roads/buildings → controls → HUD       │
                  └─────────────────────────────────────────────┘
 
-                 LOCAL SERVER (Express/polka):
+                 LOCAL SERVER (Express + Vite middleware):
                    GET  /                upload page
                    POST /bake            run pipeline, stream progress (SSE)
                    GET  /worlds/:id/*    serve a baked dataset
                    GET  /explore/:id     renderer pointed at that world
+                   GET  /api/worlds      list baked worlds for the upload page
 ```
 
 The bake is the slow, offline half (tens of seconds to a couple of minutes per
@@ -74,11 +76,14 @@ dataset on disk and the manifest schema in §6.
 
 ## 3. Coordinate frame
 
-One local right-handed metric frame, shared by the bake and the renderer.
+One local right-handed metric frame, shared by the bake and the renderer
+(implemented once in `lib/frame.mjs`).
 
-- **Origin** = the south-west corner of the _padded_ bounding box. Picking a box
+- **Origin** = the north-west corner of the _padded_ bounding box. Picking a box
   corner (not the trailhead) keeps the heightmap grid cleanly indexed from
-  `[0,0]`.
+  `[0,0]`; picking the **north** edge means `+Z` (south) and heightmap row
+  numbers grow in the same direction, and every coordinate inside the box stays
+  positive.
 - **Axes** = `+X` east, `+Z` south, `+Y` up (elevation ASL). This is Three.js's
   default (y-up) with the ground in the X/Z plane.
 - **Scale** = meters. Longitude is scaled by `cos(lat0)` (lat0 = box center) so
@@ -103,7 +108,7 @@ published trail length should match the summed segment lengths in `trail.json`.
 ## 4. Data sources
 
 All global, all keyless, all fine for personal/local use. Attribution required
-(see README).
+(see readme).
 
 | Layer     | Source                               | Zoom / res          | Format        |
 | --------- | ------------------------------------ | ------------------- | ------------- |
@@ -129,9 +134,9 @@ Encode that boundary in your head now so you don't accidentally cross it later.
 Each stage is a module under `lib/`. Stages are pure where possible (input
 files/args → output files), so you can re-run any one in isolation.
 
-1. **Parse + plan** — `lib/gpx-bounds.mjs` (already written).
-   GPX → points → `planBake()` → `{ rawBbox, bbox, origin, lat0, worldId,
-trailhead, trailLengthKm, tilesForZoom(), corridorTilesForZoom() }`.
+1. **Parse + plan** — `lib/gpx-bounds.mjs`.
+   GPX → points → `planBake()` → `{ rawBbox, bbox, origin, worldId, trailhead,
+trailLengthKm, tilesForZoom(), corridorTilesForZoom() }`.
    Enforces the area cap so a giant GPX can't trigger a 40,000-tile download.
 
 2. **Fetch elevation tiles** — `lib/fetch-elevation.mjs`.
@@ -164,8 +169,8 @@ trailhead, trailLengthKm, tilesForZoom(), corridorTilesForZoom() }`.
 6. **Vector layer** — `lib/fetch-osm.mjs`.
    One Overpass query for `bbox`: highways (centerlines), building footprints,
    `natural=water` polygons, and POIs (`natural=peak`, `natural=waterfall`,
-   `tourism=viewpoint`). Write `osm.json` (geometry already projected to local
-   meters, or projected lazily in the renderer — pick one and be consistent).
+   `tourism=viewpoint`). Write `osm.json`, geometry already projected to local
+   meters.
 
 7. **Trail geometry** — `lib/build-trail.mjs`.
    Resample the GPX to a sensible spacing, convert to local coords, and snap each
@@ -173,14 +178,18 @@ trailhead, trailLengthKm, tilesForZoom(), corridorTilesForZoom() }`.
    floating). Write `trail.json` (polyline + cumulative distance + named
    waypoints if present).
 
-8. **Manifest** — `lib/write-manifest.mjs`. Schema in §6.
+8. **Manifest** — `lib/write-manifest.mjs`. Schema in §6. Written **last**: its
+   presence marks a world complete, so a crashed bake never leaves a half-world
+   the server would happily serve.
 
-9. **Cache.** Every raw tile is cached by `z/x/y`. A second trail overlapping a
-   popular area reuses most tiles. Bake worlds are keyed by `worldId` (hash of
-   rounded bbox) so an identical GPX is a no-op.
+9. **Cache.** Every raw tile is cached by `z/x/y` (`lib/tiles.mjs`). A second
+   trail overlapping a popular area reuses most tiles. Baked worlds are keyed by
+   `worldId` (hash of rounded bbox) so an identical GPX is a no-op.
 
 **Orchestrator** — `lib/bake.mjs` runs 1→9, emitting progress events
-(`{stage, done, total, message}`) that the server forwards to the browser.
+(`{stage, done, total, message}`) that the server forwards to the browser as
+SSE; its final event is `{done: true, worldId}` (a boolean, distinguishing it
+from the numeric `done` counter in progress events).
 
 ---
 
@@ -194,8 +203,9 @@ trailhead, trailLengthKm, tilesForZoom(), corridorTilesForZoom() }`.
   "createdAt": "2026-06-10T12:00:00Z",
 
   "frame": {
-    "originLat": 37.71153,
-    "originLon": -119.57524, // SW corner
+    "originLat": 37.75953, // NW corner (see §3)
+    "originLon": -119.57524,
+    "originCorner": "NW",
     "lat0": 37.7355, // cos-correction latitude
     "metersPerDegLat": 111320,
   },
@@ -217,12 +227,15 @@ trailhead, trailLengthKm, tilesForZoom(), corridorTilesForZoom() }`.
     "chunkCols": 4,
     "chunkRows": 4,
     "chunkPx": 2048,
+    "coreZoom": 16,
+    "edgeZoom": 15,
     "files": "imagery/chunk_{row}_{col}.jpg",
+    "chunks": [/* per-chunk world extents, row-major */],
   },
 
   "forestMask": { "file": "forest.png", "cols": 420, "rows": 351 },
 
-  "trail": { "file": "trail.json" },
+  "trail": { "file": "trail.json", "lengthM": 22360 },
   "vector": { "file": "osm.json" },
 
   "spawn": { "x": 1500, "y": 1235, "z": 4100, "headingDeg": 78 },
@@ -260,7 +273,7 @@ Three.js + Vite. Each is a small module under `src/`.
 - **`terrain.js`** — one mesh per imagery chunk, vertices from the heightmap,
   imagery as the diffuse texture. Slope-based relighting per time of day, and a
   green-selective desaturation/warmth pass to tame the satellite imagery's olive
-  cast (do this in the terrain shader).
+  cast (done in the terrain shader).
 - **`trail.js`** — the GPX polyline as a ribbon/tube offset a fraction of a meter
   above the surface so it reads clearly without z-fighting. Markers at trailhead,
   end, and named waypoints.
@@ -269,16 +282,15 @@ Three.js + Vite. Each is a small module under `src/`.
   that stream in/out around the camera. Open mask = no trees; steep slope = no
   trees.
 - **`sky.js`** — time-of-day (dawn→midday→golden→dusk→night), cross-fading sky
-  color, sun direction, exposure, and distance fog. Optional grounded valley-fog
-  slab as a stretch goal.
+  color, sun direction, exposure, and distance fog.
 - **`water.js`** — OSM `natural=water` polygons as flat planes at local DEM
-  height with a simple animated normal map. Optional: auto-place `natural=waterfall`
-  POIs as short procedural falls (no hand placement).
-- **`human.js`** (optional) — OSM roads draped as ribbons, building footprints
-  extruded. Skip for v1 unless the trail is near a town.
+  height with a simple animated normal map.
+- **`human.js`** — OSM roads draped as ribbons, building footprints extruded.
 - **`controls.js`** — pointer-lock look; WASD move; Space/C up/down in fly mode;
   Shift boost; F toggles fly↔walk (walk clamps to ground at eye height).
-- **`hud.js`** — trail name, distance, current elevation, time-of-day key hint.
+- **`hud.js`** — trail name, distance along trail, current elevation,
+  time-of-day label, key hints, attribution line.
+- **`sound.js`** — ambient audio, toggled with M.
 
 Keep the whole add-on layer (forest/water/human/weather) on a draw-call budget so
 it holds 60 fps — the reference project kept its human+wildlife+weather layer to
@@ -288,14 +300,18 @@ roughly ten extra draw calls.
 
 ## 8. Local server
 
-`server.mjs` (Express or polka + a static handler):
+`server.mjs` (Express with Vite in middleware mode):
 
-- `GET /` — drag-drop upload page.
-- `POST /bake` — accepts the GPX (multipart). Validates (size cap, parses,
-  enforces the area cap), runs `lib/bake.mjs` in a child process, streams
-  progress over **SSE**, responds with `{ worldId }` when done.
+- `GET /` — drag-drop upload page (`index.html` + `src/upload.js`).
+- `POST /bake` — accepts the GPX as the raw request body (text, 40 MB cap).
+  Validates that it contains track points and runs `lib/bake.mjs` **in-process**
+  (the bake is IO-bound, so the event loop stays responsive for a single local
+  user), streaming progress over **SSE** and ending with `{ done: true, worldId }`.
 - `GET /worlds/:id/*` — static-serve the baked dataset.
-- `GET /explore/:id` — the renderer, told which world to load via the URL.
+- `GET /explore/:id` — the renderer (`explore.html`), told which world to load
+  via the URL.
+- `GET /api/worlds` — every world on disk with a complete manifest, for the
+  upload page's "baked worlds" list.
 
 No database. The filesystem (`worlds/`, `cache/`) is the entire store. A CLI
 (`node lib/bake.mjs trail.gpx`) does the same bake without the browser, for
@@ -321,35 +337,39 @@ scripting.
 
 ---
 
-## 10. Build plan
+## 10. Build plan (all shipped)
 
-- **P0 — Scaffold.** Vite + Three.js project, `lib/gpx-bounds.mjs` in place,
+- **P0 — Scaffold.** ✅ Vite + Three.js project, `lib/gpx-bounds.mjs` in place,
   the CLI prints a bake plan for a real GPX.
-- **P1 — It works (the milestone that proves the idea).** Bake elevation +
-  imagery for one trail; render the textured terrain; spawn at the trailhead;
-  draw the trail ribbon. If this looks good, the rest is additive.
-- **P2 — Life.** Forest from the mask; sky + time-of-day; fog.
-- **P3 — Detail.** OSM water; optional roads/buildings; POI markers.
-- **P4 — Polish.** HUD, walk mode, optional weather/wildlife/audio.
-- **Throughout — Verify.** A Playwright harness that drives the app headlessly,
-  screenshots fixed viewpoints, and lets you _look at your own output_ to catch
-  buried trail geometry, wrong tree color, or misplaced terrain — the single
-  most valuable habit from the reference project.
+- **P1 — It works.** ✅ Bake elevation + imagery for one trail; render the
+  textured terrain; spawn at the trailhead; draw the trail ribbon.
+- **P2 — Life.** ✅ Forest from the mask; sky + time-of-day; fog.
+- **P3 — Detail.** ✅ OSM water; roads/buildings.
+- **P4 — Polish.** ✅ HUD, walk mode, ambient audio.
+- **Throughout — Verify.** ✅ `tools/verify.mjs`: a Playwright harness that
+  drives the app headlessly, screenshots fixed viewpoints, and lets you _look at
+  your own output_ — the single most valuable habit from the reference project.
+
+What's next lives in `todo.md`.
 
 ---
 
-## 11. Suggested project layout
+## 11. Project layout
 
 ```
-trailscape/
-  README.md
-  DESIGN.md
+magellan/
+  readme.md
+  design.md                 # this file
+  todo.md                   # features to scope next
   package.json
-  index.html
+  index.html                # upload page
+  explore.html              # renderer page
   vite.config.js
   server.mjs                # local upload + serve
   lib/                      # bake pipeline (Node)
-    gpx-bounds.mjs          # parse + plan (done)
+    gpx-bounds.mjs          # parse + plan
+    frame.mjs               # the shared local metric frame
+    tiles.mjs               # tile fetch + cache
     fetch-elevation.mjs
     build-heightmap.mjs
     build-imagery.mjs
@@ -360,6 +380,7 @@ trailscape/
     bake.mjs                # orchestrator + CLI
   src/                      # renderer (browser)
     main.js
+    upload.js               # upload page logic
     loader.js
     terrain.js
     trail.js
@@ -369,8 +390,11 @@ trailscape/
     human.js
     controls.js
     hud.js
+    sound.js
   tools/
     verify.mjs              # headless checks + screenshots
+  fixtures/                 # sample GPX files for testing
   cache/                    # raw tiles, by z/x/y (gitignored)
   worlds/                   # baked datasets, by worldId (gitignored)
+  shots/                    # verify.mjs screenshots (gitignored)
 ```

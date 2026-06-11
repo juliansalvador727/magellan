@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>magellan</title>
+    <style>
+      /* Palette: Philippine flag — blue #0038a8, red #ce1126, yellow #fcd116, white. */
+      :root { color-scheme: dark; }
+      html, body { margin: 0; height: 100%; overflow: hidden; background: #060b1d; }
+      body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+      canvas { display: block; }
+      #overlay {
+        position: fixed; inset: 0; display: flex; flex-direction: column; gap: 14px;
+        align-items: center; justify-content: center; background: #060b1d;
+        color: #e8edf8; z-index: 10; transition: opacity 0.6s;
+      }
+      #overlay.hidden { opacity: 0; pointer-events: none; }
+      #overlay h1 { font-size: 20px; font-weight: 600; margin: 0; color: #fff; }
+      #overlay h1::after {
+        content: ""; display: block; height: 3px; margin-top: 7px; border-radius: 2px;
+        background: linear-gradient(90deg, #0038a8 0 44%, #fcd116 44% 56%, #ce1126 56% 100%);
+      }
+      #loadmsg { color: #9fb0d9; font-size: 13px; font-family: ui-monospace, monospace; }
+      #loadbar { width: 260px; height: 4px; background: #14235a; border-radius: 2px; overflow: hidden; }
+      #loadbar div { height: 100%; width: 0; background: #fcd116; transition: width 0.25s; }
+      .hud { position: fixed; color: #eef2fa; text-shadow: 0 1px 3px #000c; font-size: 13px; z-index: 5; user-select: none; pointer-events: none; }
+      #hud-tl { top: 14px; left: 16px; }
+      #hud-tl .name { font-size: 17px; font-weight: 650; letter-spacing: 0.3px; }
+      #hud-tl .sub { color: #bcc8e6; margin-top: 2px; }
+      #hud-bl { bottom: 14px; left: 16px; font-family: ui-monospace, monospace; font-size: 12.5px; line-height: 1.7; }
+      #hud-br { bottom: 14px; right: 16px; text-align: right; color: #bcc8e6; font-size: 12px; line-height: 1.7; }
+      #hud-br .tod { color: #ffdf5c; font-size: 13px; font-weight: 600; }
+      #hud-bc { bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #ffffff66; }
+    </style>
+  </head>
+  <body>
+    <div id="overlay">
+      <h1>magellan</h1>
+      <div id="loadbar"><div></div></div>
+      <div id="loadmsg">loading manifest…</div>
+    </div>
+    <div class="hud" id="hud-tl"></div>
+    <div class="hud" id="hud-bl"></div>
+    <div class="hud" id="hud-br"></div>
+    <div class="hud" id="hud-bc"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

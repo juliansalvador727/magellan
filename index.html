@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>magellan — turn a GPX into a world</title>
+    <style>
+      /* Palette: Philippine flag — blue #0038a8, red #ce1126, yellow #fcd116, white. */
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        background: radial-gradient(1200px 800px at 70% -10%, #12266b 0%, #0a1438 55%, #060b1d 100%);
+        color: #e8edf8; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { width: min(620px, 92vw); padding: 48px 0; }
+      h1 { font-size: 28px; margin: 0 0 10px; letter-spacing: 0.5px; color: #fff; }
+      h1::after {
+        content: ""; display: block; width: 120px; height: 3px; margin-top: 8px; border-radius: 2px;
+        background: linear-gradient(90deg, #0038a8 0 44%, #fcd116 44% 56%, #ce1126 56% 100%);
+      }
+      p.tag { margin: 0 0 28px; color: #9fb0d9; font-size: 14px; line-height: 1.5; }
+      #drop {
+        border: 2px dashed #2c4187; border-radius: 14px; padding: 56px 24px; text-align: center;
+        cursor: pointer; transition: border-color 0.15s, background 0.15s; background: #ffffff06;
+      }
+      #drop.hover { border-color: #fcd116; background: #fcd11612; }
+      #drop strong { color: #ffdf5c; }
+      #drop small { display: block; margin-top: 10px; color: #7488ba; }
+      #file { display: none; }
+      #log { margin-top: 22px; font-size: 13px; font-family: ui-monospace, monospace; }
+      #log .stage { color: #9fb0d9; padding: 2px 0; }
+      #log .stage.active { color: #ffdf5c; }
+      #log .error { color: #ff7b8a; white-space: pre-wrap; }
+      #bar { height: 4px; background: #14235a; border-radius: 2px; margin-top: 14px; overflow: hidden; display: none; }
+      #bar div { height: 100%; width: 0; background: #fcd116; transition: width 0.2s; }
+      #worlds { margin-top: 34px; }
+      #worlds h2 { font-size: 13px; color: #7488ba; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 8px; }
+      #worlds a {
+        display: flex; justify-content: space-between; padding: 10px 14px; margin: 6px 0;
+        background: #ffffff08; border-radius: 8px; color: #e8edf8; text-decoration: none; font-size: 14px;
+        border-left: 3px solid #0038a8;
+      }
+      #worlds a:hover { background: #ffffff12; border-left-color: #fcd116; }
+      #worlds a .meta { color: #7488ba; font-size: 12.5px; }
+      footer { margin-top: 36px; font-size: 11.5px; color: #5d6f9f; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>magellan</h1>
+      <p class="tag">
+        Drop a GPX trail and get a to-scale 3D world — real elevation, real satellite
+        imagery, a procedural forest, your trail draped over the terrain. Everything
+        runs on this machine.
+      </p>
+      <div id="drop">
+        <strong>Drop a .gpx file here</strong> or click to choose one
+        <small>AllTrails, Gaia, Strava, Komoot… any GPX export works</small>
+      </div>
+      <input id="file" type="file" accept=".gpx,application/gpx+xml" />
+      <div id="bar"><div></div></div>
+      <div id="log"></div>
+      <div id="worlds"></div>
+      <footer>
+        Elevation: AWS Terrain Tiles (Mapzen/Terrarium) · Imagery: Esri World Imagery ·
+        Roads &amp; buildings: © OpenStreetMap contributors.<br />
+        Local personal use only — don't host the baked imagery publicly.
+      </footer>
+    </main>
+    <script type="module" src="/src/upload.js"></script>
+  </body>
+</html>

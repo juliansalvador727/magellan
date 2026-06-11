@@ -1,4 +1,4 @@
-# Trailscape
+# magellan
 
 Turn any GPX trail into a to-scale 3D world you can fly and walk through —
 real elevation, real satellite imagery, a procedurally grown forest, and your
@@ -7,7 +7,9 @@ Komoot, or anywhere else, and explore the route and the land around it.
 
 Runs entirely on your machine. No API keys, no cloud, no account.
 
-Inspired by [ode-to-yosemite](https://github.com/shlokkhemani/ode-to-yosemite),
+Named for the circumnavigator; the UI wears the colors of the Philippine flag,
+where his voyage ended. Inspired by
+[ode-to-yosemite](https://github.com/shlokkhemani/ode-to-yosemite),
 generalized from one fixed valley to any uploaded trail.
 
 ---
@@ -29,8 +31,8 @@ minutes depending on how large the trail is — then exploring is instant.
 Requires Node 20+.
 
 ```sh
-git clone <your-repo-url> trailscape
-cd trailscape
+git clone <your-repo-url> magellan
+cd magellan
 npm install
 ```
 
@@ -65,11 +67,22 @@ committing to a full bake:
 node lib/gpx-bounds.mjs path/to/trail.gpx
 ```
 
+### Look at your own output
+
+A headless harness drives the renderer, screenshots fixed viewpoints
+(spawn, overhead, mid-trail at golden hour, night) into `shots/`, and fails
+on console errors:
+
+```sh
+npm i -D playwright && npx playwright install chromium   # once
+npm run verify [worldId]
+```
+
 ---
 
 ## Getting a GPX
 
-Trailscape never talks to AllTrails (or any trail provider) directly — you bring
+magellan never talks to AllTrails (or any trail provider) directly — you bring
 the file. Export a route as GPX from your own account:
 
 - **AllTrails** (Plus/Peak): open a route → More / Download Route → GPX Track.
@@ -114,7 +127,7 @@ a place you've already visited is much faster. Both folders are gitignored.
 
 ## Data sources & attribution
 
-Trailscape composites open data. If you share screenshots or recordings, credit:
+magellan composites open data. If you share screenshots or recordings, credit:
 
 - **Elevation** — AWS Terrain Tiles (Mapzen / Terrarium), derived from NASA/USGS DEMs.
 - **Imagery** — Esri World Imagery.
@@ -139,6 +152,7 @@ Trailscape composites open data. If you share screenshots or recordings, credit:
 
 ## Project layout
 
-See `DESIGN.md` for the full architecture, data formats, coordinate frame, and
-build plan. The short version: `lib/` is the offline bake pipeline, `src/` is the
-browser renderer, `server.mjs` glues them with an upload endpoint.
+See `design.md` for the full architecture, data formats, coordinate frame, and
+build plan, and `todo.md` for what's next. The short version: `lib/` is the
+offline bake pipeline, `src/` is the browser renderer, `server.mjs` glues them
+with an upload endpoint.
