@@ -5,11 +5,11 @@
 # magellan
 
 <p align="center">
-  <a href="magellan_demo.mp4">
+  <a href="https://youtu.be/XdJ-QJMrYQE">
     <img src="mainui.png" alt="Watch the magellan demo" width="720" />
   </a>
   <br />
-  <a href="magellan_demo.mp4">Watch the demo video (MP4)</a>
+  <a href="https://youtu.be/XdJ-QJMrYQE">Watch the demo video</a>
 </p>
 
 Turn any GPX trail into a to-scale 3D world you can fly and walk through —
