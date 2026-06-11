@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="public/logo.png" alt="magellan logo" width="120" />
+</p>
+
 # magellan
 
 Turn any GPX trail into a to-scale 3D world you can fly and walk through —

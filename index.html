@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>magellan — turn a GPX into a world</title>
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <style>
       /* Palette: Philippine flag — blue #0038a8, red #ce1126, yellow #fcd116, white. */
       :root { color-scheme: dark; }
@@ -14,12 +18,17 @@
         color: #e8edf8; font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       }
       main { width: min(620px, 92vw); padding: 48px 0; }
+      .brand { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 28px; }
+      .brand img {
+        width: 76px; height: 76px; flex: 0 0 76px; border-radius: 18px;
+        box-shadow: 0 18px 42px #0008, 0 0 0 1px #ffffff18;
+      }
       h1 { font-size: 28px; margin: 0 0 10px; letter-spacing: 0.5px; color: #fff; }
       h1::after {
         content: ""; display: block; width: 120px; height: 3px; margin-top: 8px; border-radius: 2px;
         background: linear-gradient(90deg, #0038a8 0 44%, #fcd116 44% 56%, #ce1126 56% 100%);
       }
-      p.tag { margin: 0 0 28px; color: #9fb0d9; font-size: 14px; line-height: 1.5; }
+      p.tag { margin: 0; color: #9fb0d9; font-size: 14px; line-height: 1.5; }
       #drop {
         border: 2px dashed #2c4187; border-radius: 14px; padding: 56px 24px; text-align: center;
         cursor: pointer; transition: border-color 0.15s, background 0.15s; background: #ffffff06;
@@ -48,12 +57,17 @@
   </head>
   <body>
     <main>
-      <h1>magellan</h1>
-      <p class="tag">
-        Drop a GPX trail and get a to-scale 3D world — real elevation, real satellite
-        imagery, a procedural forest, your trail draped over the terrain. Everything
-        runs on this machine.
-      </p>
+      <div class="brand">
+        <img src="/logo.png" alt="" width="76" height="76" />
+        <div>
+          <h1>magellan</h1>
+          <p class="tag">
+            Drop a GPX trail and get a to-scale 3D world — real elevation, real satellite
+            imagery, a procedural forest, your trail draped over the terrain. Everything
+            runs on this machine.
+          </p>
+        </div>
+      </div>
       <div id="drop">
         <strong>Drop a .gpx file here</strong> or click to choose one
         <small>AllTrails, Gaia, Strava, Komoot… any GPX export works</small>

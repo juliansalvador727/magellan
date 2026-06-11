@@ -4,6 +4,10 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>magellan</title>
+    <link rel="icon" type="image/png" sizes="48x48" href="/favicon-48.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <style>
       /* Palette: Philippine flag — blue #0038a8, red #ce1126, yellow #fcd116, white. */
       :root { color-scheme: dark; }
@@ -16,6 +20,10 @@
         color: #e8edf8; z-index: 10; transition: opacity 0.6s;
       }
       #overlay.hidden { opacity: 0; pointer-events: none; }
+      #overlay .logo {
+        width: 88px; height: 88px; border-radius: 20px;
+        box-shadow: 0 18px 42px #0008, 0 0 0 1px #ffffff18;
+      }
       #overlay h1 { font-size: 20px; font-weight: 600; margin: 0; color: #fff; }
       #overlay h1::after {
         content: ""; display: block; height: 3px; margin-top: 7px; border-radius: 2px;
@@ -36,6 +44,7 @@
   </head>
   <body>
     <div id="overlay">
+      <img class="logo" src="/logo.png" alt="" width="88" height="88" />
       <h1>magellan</h1>
       <div id="loadbar"><div></div></div>
       <div id="loadmsg">loading manifest…</div>
