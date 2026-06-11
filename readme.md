@@ -18,6 +18,20 @@ generalized from one fixed valley to any uploaded trail.
 
 ---
 
+## Demo
+
+![magellan main interface](mainui.png)
+
+<video src="magellan_demo.mp4" controls muted playsinline width="100%"></video>
+
+## Sample worlds
+
+| Juan de Fuca | Panorama Ridge | The Chief |
+| ------------ | -------------- | --------- |
+| ![Juan de Fuca sample render](juan_de_fuca.png) | ![Panorama Ridge sample render](panorama_ridge.png) | ![The Chief sample render](the_chief.png) |
+
+---
+
 ## How it works
 
 You give it a GPX file. It works out the region around the trail, downloads the
