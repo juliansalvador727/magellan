@@ -5,15 +5,7 @@
 # magellan
 
 <p align="center">
-  <iframe
-    width="720"
-    height="405"
-    src="https://www.youtube.com/embed/XdJ-QJMrYQE"
-    title="magellan demo video"
-    frameborder="0"
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-    allowfullscreen>
-  </iframe>
+  <iframe width="720" height="405" src="https://www.youtube.com/embed/XdJ-QJMrYQE" title="magellan demo video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen> </iframe>
   <br />
   <a href="https://youtu.be/XdJ-QJMrYQE">
     <img src="mainui.png" alt="Watch the magellan demo" width="720" />
