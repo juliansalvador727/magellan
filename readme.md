@@ -4,7 +4,13 @@
 
 # magellan
 
-<video src="magellan_demo.mp4" controls muted playsinline width="100%"></video>
+<p align="center">
+  <a href="magellan_demo.mp4">
+    <img src="mainui.png" alt="Watch the magellan demo" width="720" />
+  </a>
+  <br />
+  <a href="magellan_demo.mp4">Watch the demo video (MP4)</a>
+</p>
 
 Turn any GPX trail into a to-scale 3D world you can fly and walk through —
 real elevation, real satellite imagery, a procedurally grown forest, and your
@@ -19,10 +25,6 @@ where his voyage ended. Inspired by
 generalized from one fixed valley to any uploaded trail.
 
 ---
-
-## Demo
-
-![magellan main interface](mainui.png)
 
 ## Sample worlds
 
