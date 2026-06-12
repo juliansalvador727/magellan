@@ -6,12 +6,14 @@ import { loadWorld } from "./loader.js";
 import { createTerrain } from "./terrain.js";
 import { createTrail } from "./trail.js";
 import { createForest } from "./forest.js";
+import { createClutter } from "./clutter.js";
 import { createSky } from "./sky.js";
 import { createWater } from "./water.js";
 import { createHuman } from "./human.js";
 import { createControls } from "./controls.js";
 import { createHud } from "./hud.js";
 import { createSound } from "./sound.js";
+import { createGraphicsCounters, getGraphicsPreset } from "./graphics.js";
 
 const overlay = document.getElementById("overlay");
 const loadMsg = document.getElementById("loadmsg");
@@ -26,6 +28,7 @@ main().catch((err) => {
 });
 
 async function main() {
+  const graphicsPreset = getGraphicsPreset();
   const world = await loadWorld(worldId, (label, frac) => {
     loadMsg.textContent = label;
     loadBar.style.width = `${Math.round(frac * 100)}%`;
@@ -34,7 +37,7 @@ async function main() {
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, graphicsPreset.pixelRatio));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   document.body.appendChild(renderer.domElement);
 
@@ -42,17 +45,19 @@ async function main() {
   const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.5, 80_000);
 
   loadMsg.textContent = "building terrain…";
-  createTerrain(world, scene);
+  const terrain = createTerrain(world, scene, graphicsPreset);
   createTrail(world, scene);
   const water = createWater(world, scene);
   createHuman(world, scene);
+  const clutter = createClutter(world, scene, graphicsPreset);
   loadMsg.textContent = "growing forest…";
   await nextFrame(); // let the message paint before the placement loop
-  const forest = createForest(world, scene);
+  const forest = createForest(world, scene, graphicsPreset);
   const sky = createSky(world, scene, renderer);
   const controls = createControls(camera, world, renderer.domElement);
   const hud = createHud(world);
   const sound = createSound();
+  const graphics = createGraphicsCounters({ renderer, world, forest, terrain, clutter, preset: graphicsPreset });
 
   document.addEventListener("keydown", (e) => {
     if (e.code === "KeyL") sky.cycle();
@@ -76,11 +81,20 @@ async function main() {
     forest.update(t);
     hud.update(camera, sky, controls);
     renderer.render(scene, camera);
+    graphics.update(dt);
     if (firstFrame) {
       firstFrame = false;
       overlay.classList.add("hidden");
       // hooks for tools/verify.mjs and the curious
-      window.__magellan = { ready: true, world, camera, controls, sky, treeCount: forest.count };
+      window.__magellan = {
+        ready: true,
+        world,
+        camera,
+        controls,
+        sky,
+        graphics: graphics.values,
+        treeCount: forest.count,
+      };
     }
   });
 }

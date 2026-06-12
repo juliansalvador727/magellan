@@ -6,11 +6,11 @@
 import * as THREE from "three";
 
 const PRESETS = [
-  { name: "Dawn",        az: 95,  el: 7,  sun: 0xffc08a, sunInt: 1.7, top: 0x32487c, hor: 0xffc9a3, hemiSky: 0x96a8d0, hemiGnd: 0x6a5d4c, hemiInt: 0.55, fog: 0xe3c4ac, fogD: 8.5e-5, exp: 0.95, stars: 0.0 },
-  { name: "Midday",      az: 180, el: 62, sun: 0xfff4e0, sunInt: 2.6, top: 0x3f7ad1, hor: 0xcfe3f5, hemiSky: 0xbdd5ee, hemiGnd: 0x8a8474, hemiInt: 0.65, fog: 0xdde8f2, fogD: 4.0e-5, exp: 1.05, stars: 0.0 },
-  { name: "Golden hour", az: 262, el: 13, sun: 0xffb45e, sunInt: 2.1, top: 0x4a5d96, hor: 0xf7c27b, hemiSky: 0xc7b3d9, hemiGnd: 0x7a6a52, hemiInt: 0.5,  fog: 0xeccfa8, fogD: 6.0e-5, exp: 1.0,  stars: 0.0 },
-  { name: "Dusk",        az: 274, el: -2, sun: 0x8d96c8, sunInt: 0.5, top: 0x222b52, hor: 0xd98a66, hemiSky: 0x57628e, hemiGnd: 0x3c3a38, hemiInt: 0.4,  fog: 0x9aa0c0, fogD: 6.5e-5, exp: 0.9,  stars: 0.45 },
-  { name: "Night",       az: 305, el: 38, sun: 0xbdc8ff, sunInt: 0.25, top: 0x05070f, hor: 0x101a30, hemiSky: 0x1a2440, hemiGnd: 0x0c0e12, hemiInt: 0.22, fog: 0x0a0e1a, fogD: 4.5e-5, exp: 0.85, stars: 1.0 },
+  { name: "Dawn",        az: 95,  el: 7,  sun: 0xffc08a, sunInt: 1.55, top: 0x32487c, hor: 0xffc9a3, hemiSky: 0xa6b4d4, hemiGnd: 0x776b58, hemiInt: 0.68, fog: 0xe3c4ac, fogD: 8.5e-5, exp: 1.0,  stars: 0.0 },
+  { name: "Midday",      az: 180, el: 62, sun: 0xfff4e0, sunInt: 2.15, top: 0x4b82ca, hor: 0xd4e5f3, hemiSky: 0xc7dcf0, hemiGnd: 0x969181, hemiInt: 0.86, fog: 0xdde8f2, fogD: 4.8e-5, exp: 1.08, stars: 0.0 },
+  { name: "Golden hour", az: 262, el: 13, sun: 0xffb45e, sunInt: 1.85, top: 0x53689a, hor: 0xf7c27b, hemiSky: 0xd0bfda, hemiGnd: 0x85765b, hemiInt: 0.68, fog: 0xeccfa8, fogD: 6.5e-5, exp: 1.06, stars: 0.0 },
+  { name: "Dusk",        az: 274, el: -2, sun: 0x8d96c8, sunInt: 0.42, top: 0x252f56, hor: 0xd98a66, hemiSky: 0x677097, hemiGnd: 0x4b453e, hemiInt: 0.5,  fog: 0x9aa0c0, fogD: 6.5e-5, exp: 0.95, stars: 0.45 },
+  { name: "Night",       az: 305, el: 38, sun: 0xbdc8ff, sunInt: 0.25, top: 0x05070f, hor: 0x101a30, hemiSky: 0x202b48, hemiGnd: 0x11151c, hemiInt: 0.27, fog: 0x0a0e1a, fogD: 4.5e-5, exp: 0.86, stars: 1.0 },
 ];
 
 const DOME_R = 30_000;

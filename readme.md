@@ -92,7 +92,11 @@ on console errors:
 ```sh
 npm i -D playwright && npx playwright install chromium   # once
 npm run verify [worldId]
+npm run verify -- --graphics --gfx=high [worldId]
 ```
+
+Graphics verification writes the six graphics-plan viewpoints to
+`shots/graphics/<worldId>/<preset>/`.
 
 ---
 

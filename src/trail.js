@@ -4,8 +4,8 @@
 
 import * as THREE from "three";
 
-const RIBBON_W = 1.6;
-const LIFT = 0.4;
+const RIBBON_W = 0.9;
+const LIFT = 0.14;
 
 export function createTrail(world, scene) {
   const pts = world.trail.points;
@@ -13,7 +13,12 @@ export function createTrail(world, scene) {
 
   if (pts.length >= 2) {
     const n = pts.length;
-    const pos = new Float32Array(n * 2 * 3);
+    const lanes = [-0.5, -0.18, 0.18, 0.5];
+    const pos = new Float32Array(n * lanes.length * 3);
+    const colors = new Float32Array(n * lanes.length * 3);
+    const edge = new THREE.Color(0x4c3828);
+    const center = new THREE.Color(0x9d5c39);
+    const col = new THREE.Color();
     for (let i = 0; i < n; i++) {
       const p = pts[i];
       const a = pts[Math.max(0, i - 1)];
@@ -23,37 +28,52 @@ export function createTrail(world, scene) {
       const len = Math.hypot(dx, dz) || 1;
       dx /= len;
       dz /= len;
-      // perpendicular in the ground plane
-      const px = -dz * (RIBBON_W / 2);
-      const pz = dx * (RIBBON_W / 2);
       // lift more on steep ground: the ribbon linearly interpolates between
       // samples, so on cliffs the terrain mesh can poke through a flat lift
       const slope =
         Math.abs(world.heightAt(p.x + 4, p.z) - world.heightAt(p.x - 4, p.z)) / 8 +
         Math.abs(world.heightAt(p.x, p.z + 4) - world.heightAt(p.x, p.z - 4)) / 8;
-      const lift = LIFT + Math.min(1.6, slope * 1.2);
-      // re-sample ground at each edge so the ribbon banks with the slope
-      pos[i * 6 + 0] = p.x + px;
-      pos[i * 6 + 1] = world.heightAt(p.x + px, p.z + pz) + lift;
-      pos[i * 6 + 2] = p.z + pz;
-      pos[i * 6 + 3] = p.x - px;
-      pos[i * 6 + 4] = world.heightAt(p.x - px, p.z - pz) + lift;
-      pos[i * 6 + 5] = p.z - pz;
+      const lift = LIFT + Math.min(1.15, slope * 0.9);
+      for (let j = 0; j < lanes.length; j++) {
+        const off = lanes[j] * RIBBON_W;
+        const x = p.x + -dz * off;
+        const z = p.z + dx * off;
+        const vi = (i * lanes.length + j) * 3;
+        pos[vi + 0] = x;
+        pos[vi + 1] = world.heightAt(x, z) + lift;
+        pos[vi + 2] = z;
+        const centerWeight = 1 - Math.min(1, Math.abs(lanes[j]) * 2);
+        col.copy(edge).lerp(center, centerWeight);
+        colors[vi + 0] = col.r;
+        colors[vi + 1] = col.g;
+        colors[vi + 2] = col.b;
+      }
     }
-    const idx = new Uint32Array((n - 1) * 6);
+    const idx = new Uint32Array((n - 1) * (lanes.length - 1) * 6);
     for (let i = 0, ii = 0; i < n - 1; i++) {
-      const a = i * 2;
-      idx[ii++] = a; idx[ii++] = a + 1; idx[ii++] = a + 2;
-      idx[ii++] = a + 1; idx[ii++] = a + 3; idx[ii++] = a + 2;
+      const row = i * lanes.length;
+      const next = row + lanes.length;
+      for (let j = 0; j < lanes.length - 1; j++) {
+        const a = row + j;
+        const b = row + j + 1;
+        const c = next + j;
+        const d = next + j + 1;
+        idx[ii++] = a; idx[ii++] = b; idx[ii++] = c;
+        idx[ii++] = b; idx[ii++] = d; idx[ii++] = c;
+      }
     }
     const geom = new THREE.BufferGeometry();
     geom.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    geom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geom.setIndex(new THREE.BufferAttribute(idx, 1));
-    const mat = new THREE.MeshBasicMaterial({
-      color: 0xff5230,
+    geom.computeVertexNormals();
+    const mat = new THREE.MeshLambertMaterial({
+      color: 0xffffff,
+      vertexColors: true,
       side: THREE.DoubleSide,
       polygonOffset: true,
-      polygonOffsetFactor: -2,
+      polygonOffsetFactor: -3,
+      polygonOffsetUnits: -2,
     });
     group.add(new THREE.Mesh(geom, mat));
   }
@@ -74,9 +94,9 @@ export function createTrail(world, scene) {
   for (const poi of world.osm?.pois ?? []) {
     const y = world.heightAt(poi.x, poi.z);
     const label = makeLabel(poi.name, poi.kind === "peak" ? "#ffffff" : "#bfe3ff");
-    const s = poi.kind === "peak" ? 130 : 60; // peaks are read from far away
+    const s = poi.kind === "peak" ? 72 : 46; // peaks are read from far away
     label.scale.set(s, s / 4, 1);
-    label.position.set(poi.x, y + (poi.kind === "peak" ? 40 : 18), poi.z);
+    label.position.set(poi.x, y + (poi.kind === "peak" ? 32 : 16), poi.z);
     group.add(label);
   }
 
