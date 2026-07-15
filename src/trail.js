@@ -4,8 +4,8 @@
 
 import * as THREE from "three";
 
-const RIBBON_W = 0.9;
-const LIFT = 0.14;
+const RIBBON_W = 0.85;
+const LIFT = 0.1;
 
 export function createTrail(world, scene) {
   const pts = world.trail.points;
@@ -16,8 +16,8 @@ export function createTrail(world, scene) {
     const lanes = [-0.5, -0.18, 0.18, 0.5];
     const pos = new Float32Array(n * lanes.length * 3);
     const colors = new Float32Array(n * lanes.length * 3);
-    const edge = new THREE.Color(0x4c3828);
-    const center = new THREE.Color(0x9d5c39);
+    const edge = new THREE.Color(0x423526);
+    const center = new THREE.Color(0x7a5f43);
     const col = new THREE.Color();
     for (let i = 0; i < n; i++) {
       const p = pts[i];
@@ -33,7 +33,7 @@ export function createTrail(world, scene) {
       const slope =
         Math.abs(world.heightAt(p.x + 4, p.z) - world.heightAt(p.x - 4, p.z)) / 8 +
         Math.abs(world.heightAt(p.x, p.z + 4) - world.heightAt(p.x, p.z - 4)) / 8;
-      const lift = LIFT + Math.min(1.15, slope * 0.9);
+      const lift = LIFT + Math.min(0.6, slope * 0.55);
       for (let j = 0; j < lanes.length; j++) {
         const off = lanes[j] * RIBBON_W;
         const x = p.x + -dz * off;
@@ -67,10 +67,15 @@ export function createTrail(world, scene) {
     geom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geom.setIndex(new THREE.BufferAttribute(idx, 1));
     geom.computeVertexNormals();
-    const mat = new THREE.MeshLambertMaterial({
+    // unlit like the terrain it lies on, and translucent so the imagery's own
+    // ground shows through — an opaque lit ribbon reads as a painted stripe
+    const mat = new THREE.MeshBasicMaterial({
       color: 0xffffff,
       vertexColors: true,
       side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.62,
+      depthWrite: false,
       polygonOffset: true,
       polygonOffsetFactor: -3,
       polygonOffsetUnits: -2,
@@ -143,7 +148,9 @@ export function makeLabel(text, color = "#ffffff") {
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
   const sprite = new THREE.Sprite(
-    new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }),
+    // fog:false is required: the patched atmosphere fog chunks need mesh
+    // vertex state that sprite shaders don't have
+    new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, fog: false }),
   );
   return sprite;
 }

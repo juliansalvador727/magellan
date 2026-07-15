@@ -1,36 +1,42 @@
 // graphics.js — shared runtime graphics presets and lightweight counters.
 
+// forestNear/forestFar are streaming radii in meters (full card trees vs
+// crossed-card impostors); forestDensity scales placement attempts per cell.
 export const GRAPHICS_PRESETS = {
   low: {
     id: "low",
     pixelRatio: 1,
-    treeBudget: 80_000,
+    forestNear: 380,
+    forestFar: 1500,
+    forestDensity: 0.65,
     clutter: false,
-    shadows: false,
     terrainDetail: false,
   },
   medium: {
     id: "medium",
     pixelRatio: 1.5,
-    treeBudget: 150_000,
+    forestNear: 680,
+    forestFar: 2500,
+    forestDensity: 1,
     clutter: "near",
-    shadows: false,
     terrainDetail: true,
   },
   high: {
     id: "high",
     pixelRatio: 2,
-    treeBudget: 320_000,
+    forestNear: 900,
+    forestFar: 3300,
+    forestDensity: 1.15,
     clutter: true,
-    shadows: "near",
     terrainDetail: true,
   },
   ultra: {
     id: "ultra",
     pixelRatio: 2,
-    treeBudget: 650_000,
+    forestNear: 1100,
+    forestFar: 4200,
+    forestDensity: 1.3,
     clutter: true,
-    shadows: "near",
     terrainDetail: true,
   },
 };
@@ -76,6 +82,11 @@ export function createGraphicsCounters({ renderer, world, forest, terrain, clutt
 
       values.frameTimeAverageMs = round(avgMs, 1);
       values.drawCalls = renderer.info.render.calls;
+      // the forest streams around the camera, so its counts are live
+      values.treeCount = forest.count;
+      values.vegetationCount = forest.count + clutterCount;
+      values.forestMeshes = forest.meshes.length;
+      values.bySpecies = forest.bySpecies;
       values.triangleCountEstimate =
         renderer.info.render.triangles ||
         forest.triangleEstimate + terrain.triangleEstimate + (clutter?.triangleEstimate ?? 0);

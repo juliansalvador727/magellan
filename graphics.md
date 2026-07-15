@@ -1,5 +1,30 @@
 # magellan — Graphics Upgrade Plan
 
+> **Status (June 2026):** the core of this plan has landed, modeled on
+> [ode-to-yosemite](https://github.com/shlokkhemani/ode-to-yosemite)'s
+> rendering approach:
+>
+> - `src/atmosphere.js` (new) — global aerial-perspective fog (exponential
+>   haze, grounded valley-fog slab, sun inscatter) patched into every material.
+> - `src/sky.js` — physical scattering sky (three's Sky addon), five presets
+>   driving haze/tint/relight/exposure/stars; unlit materials are tinted.
+> - `src/terrain.js` — imagery rendered **unlit** (its real baked sun shading
+>   does the lighting), with a color grade, two-scale detail noise plus
+>   sub-meter grain, and DEM-normal slope relighting per time-of-day.
+> - `src/forest.js` — canvas-painted tree atlases (conifer / cedar /
+>   broadleaf) on card geometry, streamed in deterministic cells: full 3D
+>   card trees near, crossed cards far, imagery canopy beyond. Species still
+>   chosen from elevation/slope/water/density; trail clearing kept.
+> - `src/clutter.js` — painted grass/fern cards, seated rocks and logs.
+> - `src/water.js` — fresnel toward the sky color, layered ripples, sun glint.
+> - `lib/build-imagery.mjs` — z17 Esri tiles in the trail corridor
+>   (4096 px chunks ≈ 1 m/px), true-resolution z15 context at 1024 px
+>   elsewhere; old z16 worlds still load. Re-bake with
+>   `node lib/bake.mjs <gpx> --force` to get the sharper tiles.
+>
+> Not yet done: shadows/SSAO (Phase 5.3–5.4), the RGBA vegetation mask
+> (Phase 6), weather, and bake-time quality presets.
+
 Goal: make every baked trail look richer without hand-authoring per-location
 art. The upgrades should generalize from data already in each world: elevation,
 satellite imagery, forest mask, OSM vectors, trail geometry, and local frame

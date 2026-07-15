@@ -2,6 +2,7 @@
 // (/explore/<worldId>), wires every module together, runs the frame loop.
 
 import * as THREE from "three";
+import { installAtmosphere } from "./atmosphere.js";
 import { loadWorld } from "./loader.js";
 import { createTerrain } from "./terrain.js";
 import { createTrail } from "./trail.js";
@@ -14,6 +15,8 @@ import { createControls } from "./controls.js";
 import { createHud } from "./hud.js";
 import { createSound } from "./sound.js";
 import { createGraphicsCounters, getGraphicsPreset } from "./graphics.js";
+
+installAtmosphere(); // patch the fog chunks before any material compiles
 
 const overlay = document.getElementById("overlay");
 const loadMsg = document.getElementById("loadmsg");
@@ -53,10 +56,11 @@ async function main() {
   loadMsg.textContent = "growing forest…";
   await nextFrame(); // let the message paint before the placement loop
   const forest = createForest(world, scene, graphicsPreset);
-  const sky = createSky(world, scene, renderer);
+  const sky = createSky(world, scene, renderer, [terrain, forest, clutter]);
   const controls = createControls(camera, world, renderer.domElement);
   const hud = createHud(world);
   const sound = createSound();
+  forest.prewarm(camera); // first frame should already have its forest
   const graphics = createGraphicsCounters({ renderer, world, forest, terrain, clutter, preset: graphicsPreset });
 
   document.addEventListener("keydown", (e) => {
@@ -78,7 +82,7 @@ async function main() {
     controls.update(dt);
     sky.update(dt, camera);
     water.update(t);
-    forest.update(t);
+    forest.update(camera, dt);
     hud.update(camera, sky, controls);
     renderer.render(scene, camera);
     graphics.update(dt);
@@ -90,10 +94,14 @@ async function main() {
         ready: true,
         world,
         camera,
+        scene,
+        renderer,
         controls,
         sky,
         graphics: graphics.values,
-        treeCount: forest.count,
+        get treeCount() {
+          return forest.count;
+        },
       };
     }
   });

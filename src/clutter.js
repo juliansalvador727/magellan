@@ -6,16 +6,16 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 const PRESET_LIMITS = {
   low: { grass: 0, ferns: 0, rocks: 0, logs: 0 },
-  medium: { grass: 6500, ferns: 2400, rocks: 900, logs: 260 },
-  high: { grass: 12000, ferns: 5200, rocks: 1800, logs: 520 },
-  ultra: { grass: 22000, ferns: 9000, rocks: 3400, logs: 900 },
+  medium: { grass: 16000, ferns: 5000, rocks: 1500, logs: 400 },
+  high: { grass: 30000, ferns: 10000, rocks: 2800, logs: 750 },
+  ultra: { grass: 52000, ferns: 17000, rocks: 4800, logs: 1200 },
 };
 
 export function createClutter(world, scene, graphicsPreset = {}) {
   const limits = PRESET_LIMITS[graphicsPreset.id] ?? PRESET_LIMITS.medium;
   const totalLimit = limits.grass + limits.ferns + limits.rocks + limits.logs;
   if (!totalLimit || graphicsPreset.clutter === false) {
-    return { count: 0, meshes: [], triangleEstimate: 0 };
+    return { count: 0, meshes: [], triangleEstimate: 0, setTint() {} };
   }
 
   const rand = mulberry32(hashString(world.id || world.manifest.worldId || "magellan"));
@@ -24,6 +24,10 @@ export function createClutter(world, scene, graphicsPreset = {}) {
   const step = Math.max(1, Math.floor(pts.length / Math.max(1600, totalLimit / 3)));
   const slopeStep = 4;
 
+  // several sweeps along the trail: one pass of a few tries per point can't
+  // reach the budget, and restarting with the same PRNG stream keeps it
+  // deterministic while filling in new spots each sweep
+  for (let sweep = 0; sweep < 10 && !allFull(); sweep++)
   for (let i = 0; i < pts.length; i += step) {
     const p = pts[i];
     const q = pts[Math.min(pts.length - 1, i + 1)];
@@ -33,11 +37,11 @@ export function createClutter(world, scene, graphicsPreset = {}) {
     const nx = -dz / len;
     const nz = dx / len;
 
-    const tries = 2 + Math.floor(rand() * 3);
+    const tries = 3 + Math.floor(rand() * 4);
     for (let k = 0; k < tries; k++) {
       const side = rand() < 0.5 ? -1 : 1;
       const along = (rand() - 0.5) * 3.5;
-      const dist = 2.2 + Math.pow(rand(), 1.65) * 54;
+      const dist = 1.6 + Math.pow(rand(), 1.65) * 64;
       const x = p.x + (dx / len) * along + nx * dist * side;
       const z = p.z + (dz / len) * along + nz * dist * side;
       if (!inside(world, x, z)) continue;
@@ -57,7 +61,7 @@ export function createClutter(world, scene, graphicsPreset = {}) {
           x,
           y,
           z,
-          s: 0.35 + rand() * 0.5 + trailNear * 0.08,
+          s: 0.5 + rand() * 0.75 + trailNear * 0.12,
           rot: rand() * Math.PI * 2,
           tint: 0.82 + rand() * 0.24 + wet * 0.08,
         });
@@ -81,7 +85,7 @@ export function createClutter(world, scene, graphicsPreset = {}) {
           rot: rand() * Math.PI * 2,
           tint: 0.82 + rand() * 0.22,
         });
-      } else if (groups.logs.length < limits.logs && forestDensity > 0.32 && dist > 7) {
+      } else if (groups.logs.length < limits.logs && forestDensity > 0.32 && dist > 7 && slope < 0.3) {
         groups.logs.push({
           x,
           y,
@@ -93,22 +97,24 @@ export function createClutter(world, scene, graphicsPreset = {}) {
         });
       }
     }
-    if (
+    if (allFull()) break;
+  }
+
+  function allFull() {
+    return (
       groups.grass.length >= limits.grass &&
       groups.ferns.length >= limits.ferns &&
       groups.rocks.length >= limits.rocks &&
       groups.logs.length >= limits.logs
-    ) {
-      break;
-    }
+    );
   }
 
   const group = new THREE.Group();
   group.name = "trail-clutter";
   const meshes = [];
   let triangleEstimate = 0;
-  addMesh(meshForPlants(grassGeometry(), groups.grass, 0x698042, "grass"));
-  addMesh(meshForPlants(fernGeometry(), groups.ferns, 0x4f7b3f, "fern"));
+  addMesh(meshForPlants(grassGeometry(), groups.grass, "grass"));
+  addMesh(meshForPlants(fernGeometry(), groups.ferns, "fern"));
   addMesh(meshForRocks(groups.rocks));
   addMesh(meshForLogs(groups.logs));
   scene.add(group);
@@ -117,6 +123,13 @@ export function createClutter(world, scene, graphicsPreset = {}) {
     count: groups.grass.length + groups.ferns.length + groups.rocks.length + groups.logs.length,
     meshes,
     triangleEstimate,
+    // the unlit plant materials follow the time-of-day tint like the forest;
+    // rocks/logs are Lambert-lit and follow the sun instead
+    setTint(color) {
+      for (const mesh of meshes) {
+        if (mesh.material.isMeshBasicMaterial) mesh.material.color.copy(color);
+      }
+    },
   };
 
   function addMesh(mesh) {
@@ -127,16 +140,20 @@ export function createClutter(world, scene, graphicsPreset = {}) {
   }
 }
 
-function meshForPlants(geometry, items, tintHex, name) {
+function meshForPlants(geometry, items, name) {
   if (!items.length) return null;
+  // painted alpha-cutout cards, unlit like the trees — solid little meshes
+  // read as plastic cones at walking height
   const mat = new THREE.MeshBasicMaterial({
-    color: 0xffffff,
-    vertexColors: true,
+    map: name === "grass" ? paintGrassTexture() : paintFernTexture(),
+    alphaTest: 0.35,
     side: THREE.DoubleSide,
+    alphaToCoverage: true,
   });
+  mat.toneMapped = false;
   const mesh = new THREE.InstancedMesh(geometry, mat, items.length);
   mesh.name = `clutter:${name}`;
-  fillPlantInstances(mesh, items, tintHex);
+  fillPlantInstances(mesh, items);
   return mesh;
 }
 
@@ -164,7 +181,8 @@ function meshForRocks(items) {
     scale.set(t.sx, t.sy, t.sz);
     m.compose(pos, q, scale);
     mesh.setMatrixAt(i, m);
-    col.setHex(0xa9a79c).multiplyScalar(t.tint);
+    // vertex colors already carry the rock grey; instance color is shade only
+    col.setScalar(t.tint);
     mesh.setColorAt(i, col);
   }
   mesh.instanceMatrix.needsUpdate = true;
@@ -193,11 +211,12 @@ function meshForLogs(items) {
   for (let i = 0; i < items.length; i++) {
     const t = items[i];
     q.setFromAxisAngle(up, t.rot);
-    pos.set(t.x, t.y + t.r, t.z);
+    // sink slightly so the ends don't hover on uneven ground
+    pos.set(t.x, t.y + t.r * 0.35, t.z);
     scale.set(t.len, t.r, t.r);
     m.compose(pos, q, scale);
     mesh.setMatrixAt(i, m);
-    col.setHex(0x765033).multiplyScalar(t.tint);
+    col.setScalar(t.tint);
     mesh.setColorAt(i, col);
   }
   mesh.instanceMatrix.needsUpdate = true;
@@ -205,7 +224,7 @@ function meshForLogs(items) {
   return mesh;
 }
 
-function fillPlantInstances(mesh, items, tintHex) {
+function fillPlantInstances(mesh, items) {
   const m = new THREE.Matrix4();
   const q = new THREE.Quaternion();
   const up = new THREE.Vector3(0, 1, 0);
@@ -219,49 +238,112 @@ function fillPlantInstances(mesh, items, tintHex) {
     scale.set(t.s, t.s, t.s);
     m.compose(pos, q, scale);
     mesh.setMatrixAt(i, m);
-    col.setHex(tintHex).multiplyScalar(t.tint);
+    col.setScalar(t.tint);
     mesh.setColorAt(i, col);
   }
   mesh.instanceMatrix.needsUpdate = true;
   mesh.instanceColor.needsUpdate = true;
 }
 
-function grassGeometry() {
-  const blades = [];
-  for (const rot of [0, Math.PI / 3, -Math.PI / 3]) {
-    const g = blade(0.22, 0.68, 0x73914b);
-    g.rotateY(rot);
-    blades.push(g);
-  }
-  const geom = mergeGeometries(blades.map((g) => (g.index ? g.toNonIndexed() : g)));
-  geom.computeVertexNormals();
-  return geom;
-}
-
-function fernGeometry() {
+// Crossed unit cards, bottom anchored at y=0 (instance scale sets size).
+function crossedCards(height) {
   const parts = [];
   for (const rot of [0, Math.PI / 2]) {
-    const g = blade(0.72, 0.58, 0x5d8c44);
+    const g = new THREE.PlaneGeometry(1, height);
+    g.translate(0, height / 2, 0);
     g.rotateY(rot);
     parts.push(g);
   }
-  const geom = mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)));
-  geom.computeVertexNormals();
-  return geom;
+  return mergeGeometries(parts.map((g) => (g.index ? g.toNonIndexed() : g)));
 }
 
-function blade(width, height, color) {
-  const pos = new Float32Array([
-    -width / 2, 0, 0,
-    width / 2, 0, 0,
-    0, height, 0,
-  ]);
-  const geom = new THREE.BufferGeometry();
-  geom.setAttribute("position", new THREE.BufferAttribute(pos, 3));
-  geom.setIndex([0, 1, 2]);
-  geom.computeVertexNormals();
-  paint(geom, color, 0.22);
-  return geom;
+function grassGeometry() {
+  return crossedCards(0.62);
+}
+
+function fernGeometry() {
+  return crossedCards(0.7);
+}
+
+// A clump of thin arching blades, dark at the roots and sunlit at the tips.
+function paintGrassTexture() {
+  const S = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = S;
+  canvas.height = Math.round(S * 0.62);
+  const c = canvas.getContext("2d");
+  const rand = mulberry32(0x67726173);
+  const H = canvas.height;
+  for (let i = 0; i < 90; i++) {
+    const x0 = S * (0.5 + (rand() - 0.5) * 0.45);
+    const lean = (rand() - 0.5) * S * 0.7;
+    const h = H * (0.45 + rand() * 0.55);
+    const light = 16 + rand() * 18;
+    c.strokeStyle = `hsla(${70 + rand() * 30}, ${30 + rand() * 18}%, ${light}%, ${0.7 + rand() * 0.3})`;
+    c.lineWidth = 1.5 + rand() * 2.5;
+    c.beginPath();
+    c.moveTo(x0, H);
+    c.quadraticCurveTo(x0 + lean * 0.25, H - h * 0.6, x0 + lean, H - h);
+    c.stroke();
+  }
+  return cardTexture(canvas);
+}
+
+// A few arching fronds with leaflets along each rib.
+function paintFernTexture() {
+  const S = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = S;
+  canvas.height = Math.round(S * 0.7);
+  const c = canvas.getContext("2d");
+  const rand = mulberry32(0x6665726e);
+  const H = canvas.height;
+  for (let f = 0; f < 9; f++) {
+    const dir = rand() < 0.5 ? -1 : 1;
+    const len = S * (0.22 + rand() * 0.26);
+    const a0 = -Math.PI / 2 + dir * (0.25 + rand() * 0.9);
+    const droop = 0.5 + rand() * 0.7;
+    const hue = 88 + rand() * 22;
+    const light = 13 + rand() * 12;
+    let x = S / 2;
+    let y = H;
+    let a = a0;
+    const steps = 14;
+    for (let s = 0; s < steps; s++) {
+      const t = s / steps;
+      const nx = x + Math.cos(a) * (len / steps);
+      const ny = y + Math.sin(a) * (len / steps);
+      c.strokeStyle = `hsla(${hue}, 30%, ${light * 0.8}%, 0.9)`;
+      c.lineWidth = 2 * (1 - t * 0.7);
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(nx, ny);
+      c.stroke();
+      // leaflets either side of the rib, shrinking toward the tip
+      const ll = (1 - t) * S * 0.055;
+      for (const side of [-1, 1]) {
+        c.strokeStyle = `hsla(${hue + rand() * 10 - 5}, ${28 + rand() * 14}%, ${light + t * 10}%, 0.85)`;
+        c.lineWidth = 1.6;
+        c.beginPath();
+        c.moveTo(nx, ny);
+        c.lineTo(nx + Math.cos(a + side * 1.25) * ll, ny + Math.sin(a + side * 1.25) * ll);
+        c.stroke();
+      }
+      x = nx;
+      y = ny;
+      a += dir * (droop / steps);
+    }
+  }
+  return cardTexture(canvas);
+}
+
+function cardTexture(canvas) {
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  tex.generateMipmaps = true;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  return tex;
 }
 
 function paint(geometry, hex, variation) {

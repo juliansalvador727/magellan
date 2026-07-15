@@ -1,7 +1,11 @@
-// water.js — OSM natural=water polygons as flat planes at local DEM height
-// with a cheap animated ripple. One merged mesh, one draw call.
+// water.js — OSM natural=water polygons as flat planes at local DEM height.
+// One merged mesh, one draw call. The shader fakes a calm lake surface:
+// layered ripple normals, a fresnel blend from deep water up to the sky/haze
+// color at grazing angles, and a sun glint aligned with the time-of-day sun.
+// Atmosphere fog is applied manually (custom main(), so no patched chunks).
 
 import * as THREE from "three";
+import { ATMO, ATMO_FOG_PARS } from "./atmosphere.js";
 
 export function createWater(world, scene) {
   const polys = world.osm?.water ?? [];
@@ -34,51 +38,73 @@ export function createWater(world, scene) {
   geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geom.setIndex(indices);
 
-  const uniforms = THREE.UniformsUtils.merge([
-    THREE.UniformsLib.fog,
-    {
-      uTime: { value: 0 },
-      uDeep: { value: new THREE.Color(0x1c4459) },
-      uShallow: { value: new THREE.Color(0x3a7a8c) },
-    },
-  ]);
+  const uniforms = {
+    ...ATMO.uniforms, // shared {value} objects — sky.js updates them
+    uTime: { value: 0 },
+    uDeep: { value: new THREE.Color(0x12333f) },
+    uShallow: { value: new THREE.Color(0x2b5e66) },
+  };
   const mat = new THREE.ShaderMaterial({
     uniforms,
     transparent: true,
-    fog: true,
+    fog: false,
     side: THREE.DoubleSide,
     vertexShader: /* glsl */ `
-      #include <common>
-      #include <fog_pars_vertex>
       varying vec3 vWorld;
       void main() {
         vec4 wp = modelMatrix * vec4(position, 1.0);
         vWorld = wp.xyz;
-        vec4 mvPosition = viewMatrix * wp;
-        gl_Position = projectionMatrix * mvPosition;
-        #include <fog_vertex>
+        gl_Position = projectionMatrix * viewMatrix * wp;
       }`,
     fragmentShader: /* glsl */ `
-      #include <common>
-      #include <fog_pars_fragment>
       varying vec3 vWorld;
       uniform float uTime;
       uniform vec3 uDeep, uShallow;
+      uniform vec3 uAtmoFogColor;
+      uniform vec3 uAtmoTint;
+      ${ATMO_FOG_PARS}
       void main() {
-        float r = sin(vWorld.x * 0.35 + uTime * 0.9) * sin(vWorld.z * 0.31 + uTime * 1.2)
-                + 0.5 * sin((vWorld.x + vWorld.z) * 0.13 - uTime * 0.6);
-        float sparkle = pow(max(0.0, sin(vWorld.x * 2.1 + uTime * 2.0) * sin(vWorld.z * 1.9 - uTime * 1.7)), 8.0);
-        vec3 col = mix(uDeep, uShallow, 0.5 + 0.27 * r) + vec3(0.10) * sparkle;
-        gl_FragColor = vec4(col, 0.88);
-        #include <fog_fragment>
+        // layered ripple normal: two analytic wave scales, gently animated
+        vec2 p = vWorld.xz;
+        float w1 = sin(p.x * 0.131 + uTime * 0.7) * cos(p.y * 0.117 - uTime * 0.52);
+        float w2 = sin(p.x * 0.53 - uTime * 1.1) * cos(p.y * 0.47 + uTime * 0.9);
+        float w3 = sin((p.x + p.y) * 1.7 + uTime * 1.6);
+        vec3 n = normalize(vec3(
+          w1 * 0.045 + w2 * 0.03 + w3 * 0.012,
+          1.0,
+          w1 * 0.038 + w2 * 0.026 - w3 * 0.012
+        ));
+
+        vec3 toCam = cameraPosition - vWorld;
+        float dist = length(toCam);
+        vec3 view = toCam / max(dist, 1.0);
+
+        // base color: deep in the middle of the ripple swell, shallow on crests
+        vec3 col = mix(uDeep, uShallow, 0.5 + 0.3 * w1 + 0.12 * w2);
+
+        // fresnel: grazing angles mirror the sky/haze color
+        float facing = clamp(dot(view, n), 0.0, 1.0);
+        float fresnel = 0.06 + 0.94 * pow(1.0 - facing, 4.0);
+        col = mix(col, uAtmoFogColor * 1.06, fresnel * 0.85);
+
+        // sun glint along the reflected ray
+        vec3 refl = reflect(-view, n);
+        float glint = pow(clamp(dot(refl, uAtmoSunDir), 0.0, 1.0), 240.0);
+        float sparkle = pow(clamp(dot(refl, uAtmoSunDir), 0.0, 1.0), 24.0);
+        col += uAtmoGlowColor * (glint * 1.6 + sparkle * 0.12);
+
+        col *= uAtmoTint;
+        col = atmoApply(col, uAtmoFogColor, vWorld, cameraPosition);
+        gl_FragColor = vec4(col, 0.92);
       }`,
   });
+  mat.toneMapped = false;
 
   const mesh = new THREE.Mesh(geom, mat);
   scene.add(mesh);
   return {
     update(t) {
-      mat.uniforms.uTime.value = t;
+      uniforms.uTime.value = t;
     },
   };
 }
